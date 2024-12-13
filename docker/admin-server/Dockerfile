@@ -1,52 +1,19 @@
-FROM debian:bullseye-slim
+FROM php:8.0-apache
 
-# Configurar instalación no interactiva
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Pre-configurar wireshark-common para instalación no interactiva
-RUN echo "wireshark-common wireshark-common/install-setuid boolean true" | debconf-set-selections
-
-# Actualizar e instalar herramientas básicas y de seguridad
+# Instalar dependencias
 RUN apt-get update && apt-get install -y \
-    net-tools \
-    iputils-ping \
-    iproute2 \
-    iptables \
-    openssh-server \
-    nano \
-    vim \
-    curl \
-    sudo \
-    nmap \
-    tcpdump \
-    wireshark \
-    fail2ban \
-    ufw \
-    telnet \
-    netcat \
-    && rm -rf /var/lib/apt/lists/*
+    libzip-dev \
+    zip \
+    unzip
 
-# Configurar SSH
-RUN mkdir /var/run/sshd
-RUN echo 'root:Admin123Secure!' | chpasswd
-RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+# Instalar extensiones PHP necesarias
+RUN docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Preparar UFW
-COPY ufw.conf /etc/ufw/
-RUN mkdir -p /etc/ufw/applications.d
+# Habilitar mod_rewrite para Apache
+RUN a2enmod rewrite
 
-# Configurar Fail2ban
-COPY fail2ban.conf /etc/fail2ban/jail.local
+# Configurar el documento root de Apache
+WORKDIR /var/www/html
 
-# Copiar scripts de firewall
-COPY firewall-scripts/firewall-rules.sh /usr/local/bin/
-COPY firewall-scripts/firewall-verify.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/firewall-rules.sh /usr/local/bin/firewall-verify.sh
-
-# Script de inicio
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-EXPOSE 22
-
-CMD ["/start.sh"]
+# Asegurarse de que los archivos tengan los permisos correctos
+RUN chown -R www-data:www-data /var/www/html
