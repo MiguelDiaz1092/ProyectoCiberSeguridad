@@ -1,0 +1,83 @@
+services:
+  admin-server:
+    build: 
+      context: ./admin-server
+      dockerfile: Dockerfile
+    container_name: admin-server
+    networks:
+      - admin_net
+      - app_net    # Permitir acceso a la red de aplicaciones
+      - ops_net    # Permitir acceso a la red de operaciones
+    ports:
+      - "2222:22"
+    volumes:
+      - admin_data:/var/www/html
+    privileged: true
+
+  client-admin:
+    image: consol/ubuntu-xfce-vnc:latest
+    container_name: client-admin
+    networks:
+      - admin_net
+      - app_net    # Permitir acceso a la red de aplicaciones
+      - ops_net    # Permitir acceso a la red de operaciones
+    environment:
+      - VNC_PW=password123
+    ports:
+      - "5901:5901"
+      - "6901:6901"
+    restart: unless-stopped
+
+  app-server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-server
+    networks:
+      - app_net
+    volumes:
+      - ./app-server/www:/var/www/html
+    ports:
+      - "80:80"
+    depends_on:
+      - db-server
+
+  db-server:
+    image: mysql:8.0
+    container_name: db-server
+    networks:
+      - app_net
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: tienda_db
+      MYSQL_USER: tienda_user
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./app-server/www/DataBase:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  client-ops:
+    image: consol/ubuntu-xfce-vnc:latest
+    container_name: client-ops
+    networks:
+      - ops_net
+      - app_net    # Solo acceso a la red de aplicaciones
+    environment:
+      - VNC_PW=password123
+    ports:
+      - "5902:5901"
+      - "6902:6901"
+    restart: unless-stopped
+
+networks:
+  admin_net:
+    driver: bridge
+  app_net:
+    driver: bridge
+  ops_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  admin_data:
